@@ -1,10 +1,13 @@
-import express from 'express'
+import express, { Router } from 'express'
+
 import path from 'path';
+
 
 interface Options {
 
     port: number,
-    public_path?: string
+    public_path?: string,
+    routes: Router
 }
 
 export class Server {
@@ -15,26 +18,36 @@ export class Server {
 
     private readonly public_path: string
 
+    private readonly routes: Router
+
     constructor(options: Options) {
 
-        const {port, public_path = 'public'} = options
+        const {port, public_path = 'public', routes} = options
 
         this.port = port
         this.public_path = public_path
+        this.routes = routes
 
     }
 
 
     async run() {
 
-        //* middlewares
+        //* middlewares ====
+        this.app.use(express.json())
+        
+        this.app.use(express.urlencoded({ extended: true}))
 
-        //* public folder: sirvo el contenido estatico
+        //** routes ====
+        this.app.use( this.routes )
+
+        //* public folder: sirvo el contenido estatico 
         this.app.use(express.static( this.public_path ))
 
-        //sirvo todas las rutas del contendio estatico en mi back
+      
 
-        this.app.get('*', (req, res) => {
+        //sirvo todas las rutas del contendio estatico en mi back SPA
+          this.app.get('*', (req, res) => {
 
             const indexPath = path.join(__dirname + `../../../${ this.public_path }/index.html`);
 
