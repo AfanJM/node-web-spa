@@ -1,12 +1,6 @@
 import { Request, Response } from "express"
-
-
-const users = [
-{ id: 1, nombre: 'juan sebastian', createdAt: new Date() },
-{ id: 2, nombre: 'miriam mora', createdAt: null },
-{ id: 3, nombre: 'dayling carolina', createdAt: new Date() },
-
-]
+import { prisma } from "../../data/postgres"
+import { createUserDto, updateUSerDto } from "../../domain/dtos"
 
 export class userController {
 
@@ -15,81 +9,92 @@ export class userController {
 
 
 
-    public getUsers = (req: Request, res: Response) => {
+    public getUsers = async (req: Request, res: Response) => {
 
-       return  res.json(users)
+
+        const users = await prisma.user.findMany()
+
+        return res.status(200).json({ message: 'Users', users })
     }
 
 
-    public findByOne = (req: Request, res: Response) => {
+    public findByOne = async (req: Request, res: Response) => {
 
-       const id = +req.params.id
-
-       if(isNaN(id)) return res.status(400).json({message: 'id argument is not a number'})
-
-        const user = users.find(u => u.id === id)
-
-        if(!user) return res.status(404).json({message: 'User not found'})
-
-        return res.json(user)
-
-    }
-
-    public createUser = (req: Request, res: Response) => {
-
-        const {nombre} = req.body
-
-       if(!nombre) return res.status(400).json({message: 'nombre is required'})
-
-       const user = {
-           id: users.length + 1,
-           nombre: nombre,
-           createdAt: new Date()
-       }
-
-       users.push(user)
-
-       return res.status(200).json({message:'User created', user})
-    }
-
-    public updateUser (req: Request, res: Response) {
 
         const id = +req.params.id
 
-        if(isNaN(id)) return res.status(400).json({message: 'id argument is not a number'})
+        if (isNaN(id)) return res.status(400).json({ message: 'id argument is not a number' })
 
-        const user = users.find(u => u.id === id)
+        const user = await prisma.user.findUnique({
+            where: {
+                id: id
+            }
+        })
 
-        if(!user) return res.status(404).json({message: 'User not found'})
+        if (!user) return res.status(404).json({ message: 'User not found' })
 
-        const {nombre, createdAt} = req.body
+        return res.status(200).json({ message: 'User found', user })
 
-        //if(!nombre) return res.status(400).json({message: 'nombre is required'})
+    }
 
-        user.nombre = nombre || user.nombre;
+    public createUser = async (req: Request, res: Response) => {
+        
+        //tenemos un error o no -- le mandamos el body al dto
+        const [error, CreateUserDto] = createUserDto.create(req.body)
 
-        (createdAt === 'null')
-            ? user.createdAt = null
-            : user.createdAt = new Date(createdAt || user.createdAt);
+        if(error) return res.status(400).json({error })
 
-        res.json(user)
+        //prisma
+        const user = await prisma.user.create({
+
+            data: CreateUserDto!
+
+        })
+
+        return res.status(200).json({ message: 'User created', user })
+    }
+
+    public updateUser = async(req: Request, res: Response) => {
+
+        const id = +req.params.id
+
+        const [error, UpdateUserDto] = updateUSerDto.create({...req.body, id})
+
+        if(error) return res.status(400).json({error })
+
+        const user = await prisma.user.update({
+            
+            where: {
+                id: id
+            }, 
+
+            data: UpdateUserDto!.values
+        })
+
+        if (!user) return res.status(404).json({ message: 'User not found' })
+
+
+        res.status(200).json({message: 'user updated successfully', UpdateUserDto})
 
     }
 
 
-    public deleteUSer = (req: Request, res: Response) => {
+    public deleteUSer = async (req: Request, res: Response) => {
 
         const id = +req.params.id
 
-        if(isNaN(id)) return res.status(400).json({message: 'id argument is not a number'})
+        if (isNaN(id)) return res.status(400).json({ message: 'id argument is not a number' })
 
-        const user = users.find(u => u.id === id)
+        const user = await prisma.user.delete({
 
-        if(!user) return res.status(404).json({message: 'User not found'})
+            where: {
+                id: id
+            }
+        })
+        
+        if (!user) return res.status(404).json({ message: 'User not found' })
 
-        users.splice(users.indexOf(user), 1)
-
-        return res.status(200).json({message: 'User deleted'})
+        return res.status(200).json({ message: 'User deleted' })
 
     }
 
